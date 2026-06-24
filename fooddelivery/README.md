@@ -121,3 +121,6 @@ Open `frontend/index.html` directly in your browser.
 - Frontend-backend communication with fetch API
 - CORS handling
 - MVC-style project structure
+
+
+# this change from bug brach
