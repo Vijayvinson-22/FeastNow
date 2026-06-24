@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FeastNow 🍛</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <!-- Leaflet (OpenStreetMap — no API key needed) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --saffron:#FF6B00; --amber:#FFB830; --charcoal:#1A1A2E; --slate:#2D2D44;
+      --smoke:#F5F5F0; --white:#FFFFFF; --success:#22C55E; --danger:#EF4444;
+      --text:#1A1A2E; --muted:#6B7280; --radius:12px; --shadow:0 4px 24px rgba(0,0,0,0.08);
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Inter',sans-serif;background:var(--smoke);color:var(--text);}
+    h1,h2,h3{font-family:'Syne',sans-serif;}
+
+    /* Nav */
+    nav{background:var(--charcoal);padding:0 2rem;display:flex;align-items:center;
+        justify-content:space-between;height:64px;position:sticky;top:0;z-index:200;}
+    .logo{color:var(--amber);font-family:'Syne',sans-serif;font-size:1.5rem;font-weight:800;}
+    .logo span{color:var(--saffron);}
+    .nav-links{display:flex;gap:1rem;align-items:center;}
+    .nav-btn{background:none;border:none;color:#ccc;cursor:pointer;font-family:'Inter',sans-serif;
+             font-size:.9rem;padding:.4rem .8rem;border-radius:8px;transition:all .2s;}
+    .nav-btn:hover{background:rgba(255,255,255,.1);color:#fff;}
+    .nav-btn.active{color:var(--amber);}
+    .cart-btn{background:var(--saffron);color:#fff;border:none;padding:.5rem 1.2rem;border-radius:8px;
+              cursor:pointer;font-weight:600;font-size:.9rem;display:flex;align-items:center;gap:.4rem;}
+    .cart-count{background:var(--charcoal);color:var(--amber);border-radius:50%;width:20px;height:20px;
+                display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;}
+
+    /* Pages */
+    .page{display:none;padding:2rem;max-width:1200px;margin:0 auto;}
+    .page.active{display:block;}
+
+    /* Hero */
+    .hero{background:linear-gradient(135deg,var(--charcoal) 0%,var(--slate) 100%);border-radius:var(--radius);
+          padding:3rem 2.5rem;display:flex;align-items:center;justify-content:space-between;
+          margin-bottom:2.5rem;}
+    .hero-text h1{font-size:2.8rem;color:#fff;line-height:1.15;}
+    .hero-text h1 span{color:var(--amber);}
+    .hero-text p{color:#aaa;margin:.8rem 0 .5rem;font-size:1.05rem;}
+    .hero-stats{display:flex;gap:1.5rem;margin:1rem 0 1.5rem;}
+    .hero-stat strong{display:block;font-size:1.3rem;color:var(--amber);font-family:'Syne',sans-serif;}
+    .hero-stat span{font-size:.78rem;color:#888;}
+    .hero-emoji{font-size:7rem;animation:float 3s ease-in-out infinite;}
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+    .btn-primary{background:var(--saffron);color:#fff;border:none;padding:.8rem 1.8rem;border-radius:10px;
+                 font-size:1rem;font-weight:600;cursor:pointer;transition:transform .15s,box-shadow .15s;}
+    .btn-primary:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(255,107,0,.4);}
+
+    /* Category chips */
+    .categories{display:flex;gap:.7rem;flex-wrap:wrap;margin-bottom:1.8rem;}
+    .chip{padding:.45rem 1.1rem;border-radius:99px;border:2px solid #ddd;background:#fff;
+          cursor:pointer;font-size:.85rem;font-weight:500;transition:all .2s;}
+    .chip:hover,.chip.selected{background:var(--saffron);color:#fff;border-color:var(--saffron);}
+
+    /* Search */
+    .search-bar{display:flex;gap:.5rem;margin-bottom:1.8rem;}
+    .search-bar input{flex:1;padding:.75rem 1rem;border:2px solid #e5e7eb;border-radius:10px;
+                      font-size:.95rem;outline:none;transition:border-color .2s;}
+    .search-bar input:focus{border-color:var(--saffron);}
+    .search-bar button{background:var(--saffron);color:#fff;border:none;padding:.75rem 1.4rem;
+                       border-radius:10px;cursor:pointer;font-weight:600;}
+
+    /* Food grid */
+    .food-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:1.4rem;}
+    .food-card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;
+               transition:transform .2s,box-shadow .2s;display:flex;flex-direction:column;}
+    .food-card:hover{transform:translateY(-4px);box-shadow:0 8px 30px rgba(0,0,0,.13);}
+    .food-card-img{background:linear-gradient(135deg,#fff8f0,#fff0e0);font-size:4.5rem;
+                   text-align:center;padding:1.4rem 0 1rem;position:relative;}
+    .veg-badge{position:absolute;top:8px;left:10px;width:18px;height:18px;border-radius:3px;
+               border:1.5px solid;display:flex;align-items:center;justify-content:center;}
+    .veg-badge::after{content:'';width:8px;height:8px;border-radius:50%;display:block;}
+    .veg-badge.veg{border-color:#16A34A;} .veg-badge.veg::after{background:#16A34A;}
+    .veg-badge.nonveg{border-color:#DC2626;} .veg-badge.nonveg::after{background:#DC2626;}
+    .bestseller-tag{position:absolute;top:8px;right:0;background:var(--amber);color:var(--charcoal);
+                    font-size:.65rem;font-weight:700;padding:2px 8px 2px 6px;border-radius:4px 0 0 4px;
+                    text-transform:uppercase;letter-spacing:.5px;}
+    .food-card-body{padding:1rem 1.1rem 1.2rem;flex:1;display:flex;flex-direction:column;}
+    .food-card-body h3{font-size:1.02rem;margin-bottom:.25rem;}
+    .food-tags{display:flex;flex-wrap:wrap;gap:.3rem;margin-bottom:.55rem;}
+    .food-tag{font-size:.7rem;padding:2px 8px;border-radius:99px;background:#F3F4F6;color:var(--muted);font-weight:500;}
+    .food-tag.spicy{background:#FEE2E2;color:#B91C1C;}
+    .food-tag.popular{background:#FEF3C7;color:#B45309;}
+    .food-tag.new{background:#DBEAFE;color:#1D4ED8;}
+    .food-card-body p{font-size:.82rem;color:var(--muted);margin-bottom:.6rem;line-height:1.6;flex:1;}
+    .food-info-row{display:flex;gap:.8rem;margin-bottom:.7rem;}
+    .info-pill{font-size:.72rem;color:var(--muted);display:flex;align-items:center;gap:3px;}
+    .food-meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;}
+    .price{font-size:1.15rem;font-weight:700;color:var(--saffron);}
+    .add-btn{width:100%;padding:.65rem;background:var(--saffron);color:#fff;border:none;
+             border-radius:8px;font-weight:600;cursor:pointer;transition:background .2s;font-size:.9rem;}
+    .add-btn:hover{background:#e05a00;}
+
+    /* Cart */
+    .cart-empty{text-align:center;padding:4rem 0;color:var(--muted);font-size:1.1rem;}
+    .cart-item{background:#fff;border-radius:var(--radius);padding:1rem 1.2rem;display:flex;
+               align-items:center;gap:1rem;margin-bottom:1rem;box-shadow:var(--shadow);}
+    .cart-item-emoji{font-size:2.2rem;}
+    .cart-item-info{flex:1;}
+    .cart-item-info h4{font-size:.95rem;margin-bottom:2px;}
+    .cart-item-info p{font-size:.8rem;color:var(--muted);}
+    .qty-controls{display:flex;align-items:center;gap:.5rem;}
+    .qty-btn{width:28px;height:28px;border-radius:50%;border:2px solid #ddd;background:none;cursor:pointer;
+             font-size:1rem;font-weight:700;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+    .qty-btn:hover{border-color:var(--saffron);color:var(--saffron);}
+    .cart-item-total{font-weight:700;min-width:70px;text-align:right;}
+    .demo-warning{background:#FEF3C7;border:1px solid #F59E0B;border-radius:8px;padding:.7rem 1rem;
+                  font-size:.83rem;color:#92400E;margin-bottom:1rem;}
+    .cart-total-box{background:#fff;border-radius:var(--radius);padding:1.5rem;box-shadow:var(--shadow);margin-top:1.5rem;}
+    .total-row{display:flex;justify-content:space-between;margin-bottom:.6rem;color:var(--muted);font-size:.92rem;}
+    .total-row.grand{font-weight:700;font-size:1.1rem;color:var(--text);border-top:2px solid #eee;
+                     padding-top:.7rem;margin-top:.7rem;}
+    .savings-row{color:var(--success);font-size:.82rem;margin-bottom:.4rem;}
+    .checkout-form{margin-top:1rem;}
+    .checkout-form select{width:100%;padding:.7rem 1rem;border:2px solid #e5e7eb;border-radius:8px;
+                          margin-bottom:.8rem;font-size:.95rem;outline:none;font-family:'Inter',sans-serif;}
+    .checkout-form select:focus{border-color:var(--saffron);}
+
+    /* ── Map address picker ── */
+    .map-addr-box{border:2px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:.8rem;}
+    .map-addr-box:focus-within{border-color:var(--saffron);}
+    .map-search-row{display:flex;gap:0;border-bottom:2px solid #e5e7eb;}
+    .map-search-row input{flex:1;padding:.7rem 1rem;border:none;outline:none;font-size:.9rem;font-family:'Inter',sans-serif;}
+    .map-search-row button{background:var(--saffron);color:#fff;border:none;padding:.7rem 1rem;cursor:pointer;font-size:.85rem;font-weight:600;white-space:nowrap;}
+    .map-search-row button:hover{background:#e05a00;}
+    #deliveryMap{height:220px;width:100%;}
+    .map-selected-addr{padding:.5rem .8rem;font-size:.8rem;color:var(--muted);background:#f9f9f9;
+                       display:flex;align-items:center;gap:.4rem;border-top:1px solid #eee;}
+    .map-selected-addr span{flex:1;}
+    .map-pin-hint{text-align:center;font-size:.75rem;color:var(--muted);padding:.3rem;background:#fffbe6;}
+
+    /* Orders */
+    .order-card{background:#fff;border-radius:var(--radius);padding:1.2rem 1.5rem;
+                margin-bottom:1.2rem;box-shadow:var(--shadow);}
+    .order-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.8rem;}
+    .order-id{font-size:.78rem;color:var(--muted);margin-top:2px;}
+    .status-badge{padding:.3rem .8rem;border-radius:99px;font-size:.78rem;font-weight:600;}
+    .status-Placed{background:#FEF3C7;color:#B45309;}
+    .status-Confirmed{background:#DBEAFE;color:#1D4ED8;}
+    .status-Preparing{background:#FEE2E2;color:#DC2626;}
+    .status-Out-for-Delivery{background:#D1FAE5;color:#065F46;}
+    .status-Delivered{background:#D1FAE5;color:#065F46;}
+    .status-Cancelled{background:#F3F4F6;color:#6B7280;}
+    .order-items-list{font-size:.85rem;color:var(--muted);margin-bottom:.6rem;line-height:1.7;}
+    .order-footer{display:flex;justify-content:space-between;align-items:center;
+                  border-top:1px solid #f0f0f0;padding-top:.7rem;margin-top:.4rem;}
+
+    /* Auth */
+    .auth-container{max-width:420px;margin:3rem auto;background:#fff;border-radius:var(--radius);
+                    padding:2.5rem;box-shadow:var(--shadow);}
+    .auth-container h2{margin-bottom:1.5rem;}
+    .form-group{margin-bottom:1rem;}
+    .form-group label{display:block;font-size:.85rem;font-weight:600;margin-bottom:.3rem;}
+    .form-group input{width:100%;padding:.7rem 1rem;border:2px solid #e5e7eb;border-radius:8px;
+                      font-size:.95rem;outline:none;transition:border-color .2s;font-family:'Inter',sans-serif;}
+    .form-group input:focus{border-color:var(--saffron);}
+    .auth-toggle{margin-top:1rem;text-align:center;font-size:.9rem;color:var(--muted);}
+    .auth-toggle a{color:var(--saffron);cursor:pointer;font-weight:600;}
+    .alert{padding:.7rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.88rem;}
+    .alert-error{background:#FEE2E2;color:#DC2626;}
+    .alert-success{background:#D1FAE5;color:#065F46;}
+    .section-title{font-size:1.5rem;margin-bottom:1.2rem;}
+
+    /* Toast */
+    #toast{position:fixed;bottom:2rem;right:2rem;background:var(--charcoal);color:#fff;
+           padding:.8rem 1.4rem;border-radius:10px;font-size:.9rem;font-weight:500;
+           opacity:0;transition:opacity .3s;pointer-events:none;z-index:999;max-width:320px;}
+    #toast.show{opacity:1;}
+
+    @media(max-width:640px){
+      .hero{flex-direction:column;text-align:center;}
+      .hero-emoji{font-size:4rem;margin-top:1rem;}
+      .hero-text h1{font-size:2rem;}
+      .hero-stats{justify-content:center;}
+      .page{padding:1rem;}
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">Feast<span>Now</span> 🍛</div>
+  <div class="nav-links">
+    <button class="nav-btn active" onclick="showPage('home')">Home</button>
+    <button class="nav-btn" onclick="showPage('orders')" id="ordersNavBtn">My Orders</button>
+    <button class="nav-btn" id="authNavBtn" onclick="showPage('auth')">Login</button>
+    <button class="cart-btn" onclick="showPage('cart')">
+      🛒 Cart <span class="cart-count" id="cartCount">0</span>
+    </button>
+  </div>
+</nav>
+<div id="toast"></div>
+
+<!-- HOME -->
+<div class="page active" id="homePage">
+  <div class="hero">
+    <div class="hero-text">
+      <h1>Real food,<br><span>right now.</span></h1>
+      <p>Authentic Indian & international flavours, delivered hot to your door.</p>
+      <div class="hero-stats">
+        <div class="hero-stat"><strong>30 min</strong><span>Avg delivery</span></div>
+        <div class="hero-stat"><strong>50+</strong><span>Menu items</span></div>
+        <div class="hero-stat"><strong>4.7 ⭐</strong><span>App rating</span></div>
+      </div>
+      <button class="btn-primary" onclick="document.getElementById('menuSection').scrollIntoView({behavior:'smooth'})">Explore Menu →</button>
+    </div>
+    <div class="hero-emoji">🍛</div>
+  </div>
+  <div id="menuSection">
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Search biryani, pizza, burger…" oninput="filterFoods()" />
+      <button onclick="filterFoods()">Search</button>
+    </div>
+    <div class="categories" id="categoryChips"></div>
+    <h2 class="section-title" id="menuTitle">All Items</h2>
+    <div class="food-grid" id="foodGrid"><p style="color:var(--muted)">Loading menu…</p></div>
+  </div>
+</div>
+
+<!-- CART -->
+<div class="page" id="cartPage">
+  <h2 class="section-title">Your Cart 🛒</h2>
+  <div id="cartItems"></div>
+  <div id="cartTotalBox"></div>
+</div>
+
+<!-- ORDERS -->
+<div class="page" id="ordersPage">
+  <h2 class="section-title">My Orders 📦</h2>
+  <div id="ordersList"><p style="color:var(--muted)">Loading orders…</p></div>
+</div>
+
+<!-- AUTH -->
+<div class="page" id="authPage">
+  <div class="auth-container">
+    <h2 id="authTitle">Welcome back 👋</h2>
+    <div id="authAlert"></div>
+    <div id="authForm"></div>
+  </div>
+</div>
+
+<script>
+// ── Config ─────────────────────────────────────────────────
+const API = 'http://localhost:5000/api';
+
+// ── State ──────────────────────────────────────────────────
+let token    = localStorage.getItem('fn_token') || null;
+let userName = localStorage.getItem('fn_name')  || null;
+let cart     = JSON.parse(localStorage.getItem('fn_cart') || '[]');
+let allFoods = [];
+let selectedCategory = 'All';
+let leafletMap = null;
+let deliveryMarker = null;
+let selectedLatLng = null;
+let selectedAddress = '';
+
+// ── Indian Rupee formatter ─────────────────────────────────
+const inr = (n) => new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(n);
+
+// ── Check valid MongoDB ObjectId ───────────────────────────
+const isObjectId = (id) => /^[a-f\d]{24}$/i.test(id);
+
+// ── Demo foods (shown when backend is offline) ─────────────
+const DEMO_FOODS = [
+  { _id:'d1',  name:'Chicken Biryani',        category:'Biryani',     price:299, image:'🍛', rating:4.8, prepTime:30, isVeg:false, calories:520, isBestseller:true,  tags:['popular','spicy'], description:'Slow-cooked basmati rice layered with succulent chicken, caramelised onions, saffron, and whole spices. Served with cooling raita and a wedge of lemon.' },
+  { _id:'d2',  name:'Paneer Butter Masala',   category:'Curry',       price:249, image:'🧀', rating:4.6, prepTime:20, isVeg:true,  calories:410, isBestseller:true,  tags:['popular'],        description:'Velvety tomato-cashew gravy with soft paneer cubes, finished with butter and dried fenugreek leaves. Best paired with garlic naan or jeera rice.' },
+  { _id:'d3',  name:'Chicken Burger',         category:'Burgers',     price:179, image:'🍔', rating:4.5, prepTime:15, isVeg:false, calories:380, isBestseller:false, tags:['spicy'],          description:'Crispy fried chicken thigh marinated in smoky spices, layered with sriracha mayo, crisp lettuce, and pickled jalapeños in a toasted brioche bun.' },
+  { _id:'d4',  name:'Veg Cheese Pizza',       category:'Pizza',       price:299, image:'🍕', rating:4.3, prepTime:25, isVeg:true,  calories:460, isBestseller:false, tags:[],                 description:'Hand-stretched thin-crust loaded with bell peppers, corn, olives, mushrooms, and a generous stretch of mozzarella on a tangy tomato base.' },
+  { _id:'d5',  name:'Masala Dosa',            category:'South Indian',price:129, image:'🫓', rating:4.7, prepTime:12, isVeg:true,  calories:290, isBestseller:true,  tags:['popular'],        description:'Golden-crisp fermented rice-lentil crepe filled with spiced potato masala. Served with coconut chutney and tangy sambar.' },
+  { _id:'d6',  name:'Hakka Noodles',          category:'Noodles',     price:149, image:'🍜', rating:4.2, prepTime:18, isVeg:false, calories:350, isBestseller:false, tags:['spicy'],          description:'Wok-tossed egg noodles with crunchy vegetables, shredded chicken, spring onions, soy and chilli sauce.' },
+  { _id:'d7',  name:'Mango Lassi',            category:'Drinks',      price:89,  image:'🥭', rating:4.6, prepTime:5,  isVeg:true,  calories:180, isBestseller:false, tags:['new'],            description:'Thick Alphonso mango pulp blended with chilled full-fat yoghurt, a hint of cardamom and rose water.' },
+  { _id:'d8',  name:'Chocolate Brownie Sundae',category:'Desserts',   price:149, image:'🍫', rating:4.8, prepTime:8,  isVeg:true,  calories:520, isBestseller:true,  tags:['popular','new'],  description:'Warm fudgy dark-chocolate brownie topped with vanilla bean ice-cream, hot chocolate sauce, and crushed walnuts.' },
+  { _id:'d9',  name:'Paneer Roll',            category:'Rolls',       price:139, image:'🌯', rating:4.3, prepTime:12, isVeg:true,  calories:310, isBestseller:false, tags:['spicy'],          description:'Flaky whole-wheat paratha wrapped around tandoori paneer, sliced onions, green chutney, and lemon.' },
+  { _id:'d10', name:'Veg Thali',              category:'Thali',       price:199, image:'🥘', rating:4.5, prepTime:25, isVeg:true,  calories:650, isBestseller:true,  tags:['popular'],        description:'Complete meal: dal makhani, sabzi, aloo jeera, phulkas, steamed rice, papad, pickle, and kheer.' },
+  { _id:'d11', name:'Chicken 65',             category:'Starters',    price:219, image:'🍗', rating:4.7, prepTime:20, isVeg:false, calories:430, isBestseller:true,  tags:['spicy','popular'],description:'Deep-fried chicken bites marinated in yoghurt, ginger-garlic, red chilli, and curry leaves. Served with mint chutney.' },
+  { _id:'d12', name:'Cold Coffee',            category:'Drinks',      price:99,  image:'☕', rating:4.4, prepTime:5,  isVeg:true,  calories:210, isBestseller:false, tags:['new'],            description:'Strong decoction blended with chilled full-cream milk, sugar, and vanilla ice-cream, topped with cocoa powder.' },
+];
+
+// ── Toast ──────────────────────────────────────────────────
+function toast(msg, dur=2600) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ── API helper ─────────────────────────────────────────────
+async function api(path, method='GET', body=null) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (token) opts.headers['Authorization'] = `Bearer ${token}`;
+  if (body)  opts.body = JSON.stringify(body);
+  const res  = await fetch(API + path, opts);
+  const data = await res.json();
+  // Auto-logout on expired/invalid token
+  if (res.status === 401) {
+    token = null; userName = null;
+    localStorage.removeItem('fn_token'); localStorage.removeItem('fn_name');
+    updateAuthNav();
+    throw new Error('Session expired — please login again');
+  }
+  if (!res.ok) throw new Error(data.message || 'Request failed');
+  return data;
+}
+
+// ── Pages ──────────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(name + 'Page').classList.add('active');
+  if (name === 'home')   loadFoods();
+  if (name === 'cart')   { renderCart(); setTimeout(initMap, 100); }
+  if (name === 'orders') loadOrders();
+  if (name === 'auth')   renderAuthForm();
+}
+
+// ── Auth ───────────────────────────────────────────────────
+function updateAuthNav() {
+  document.getElementById('authNavBtn').textContent = token ? `👤 ${userName||'Account'}` : 'Login';
+}
+
+function renderAuthForm(mode='login') {
+  document.getElementById('authTitle').textContent = mode==='login' ? 'Welcome back 👋' : 'Create account';
+  document.getElementById('authAlert').innerHTML = '';
+  if (token) {
+    document.getElementById('authForm').innerHTML = `
+      <p style="margin-bottom:1rem">Logged in as <strong>${userName}</strong></p>
+      <button class="btn-primary" style="width:100%" onclick="logout()">Logout</button>`;
+    return;
+  }
+  const extra = mode==='register' ? `
+    <div class="form-group"><label>Phone</label><input id="authPhone" type="tel" placeholder="+91 98765 43210"/></div>
+    <div class="form-group"><label>Address</label><input id="authAddress" placeholder="Your default address"/></div>` : '';
+  document.getElementById('authForm').innerHTML = `
+    ${mode==='register' ? '<div class="form-group"><label>Full Name</label><input id="authName" placeholder="Your name"/></div>' : ''}
+    <div class="form-group"><label>Email</label><input id="authEmail" type="email" placeholder="you@email.com"/></div>
+    <div class="form-group"><label>Password</label><input id="authPassword" type="password" placeholder="••••••••"/></div>
+    ${extra}
+    <button class="btn-primary" style="width:100%;margin-top:.5rem" onclick="submitAuth('${mode}')">
+      ${mode==='login'?'Login':'Create Account'}
+    </button>
+    <div class="auth-toggle">${mode==='login'
+      ? `Don't have an account? <a onclick="renderAuthForm('register')">Register</a>`
+      : `Already have an account? <a onclick="renderAuthForm('login')">Login</a>`}</div>`;
+}
+
+async function submitAuth(mode) {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const alertEl = document.getElementById('authAlert');
+  try {
+    let data;
+    if (mode==='register') {
+      data = await api('/auth/register','POST',{
+        name: document.getElementById('authName').value.trim(),
+        email, password,
+        phone: document.getElementById('authPhone')?.value.trim(),
+        address: document.getElementById('authAddress')?.value.trim()
+      });
+    } else {
+      data = await api('/auth/login','POST',{email,password});
+    }
+    token = data.token; userName = data.name;
+    localStorage.setItem('fn_token', token);
+    localStorage.setItem('fn_name', userName);
+    updateAuthNav();
+    alertEl.innerHTML = `<div class="alert alert-success">✅ Welcome, ${userName}!</div>`;
+    setTimeout(() => showPage('home'), 1200);
+  } catch(err) {
+    alertEl.innerHTML = `<div class="alert alert-error">❌ ${err.message}</div>`;
+  }
+}
+
+function logout() {
+  token=null; userName=null;
+  localStorage.removeItem('fn_token'); localStorage.removeItem('fn_name');
+  updateAuthNav(); renderAuthForm('login'); toast('Logged out');
+}
+
+// ── Food menu ──────────────────────────────────────────────
+async function loadFoods() {
+  let backendOnline = false;
+  try {
+    allFoods = await api('/foods');
+    backendOnline = true;
+  } catch {
+    // Backend offline: show demo foods
+    allFoods = DEMO_FOODS;
+    renderCategories(); renderFoods(allFoods);
+    return;
+  }
+  // Backend online but DB empty: show seed button
+  if (!allFoods.length) {
+    renderCategories();
+    document.getElementById('foodGrid').innerHTML = `
+      <div style="grid-column:1/-1;text-align:center;padding:3rem 1rem;">
+        <div style="font-size:4rem;margin-bottom:1rem">🍽️</div>
+        <h3 style="margin-bottom:.5rem;font-size:1.3rem">Menu is empty</h3>
+        <p style="color:var(--muted);margin-bottom:1.5rem;font-size:.95rem">
+          Your backend is connected but no food items exist in the database yet.
+        </p>
+        <button class="btn-primary" onclick="seedFoods()" id="seedBtn">
+          🌱 Seed Menu — Add 12 Sample Items
+        </button>
+        <p style="font-size:.78rem;color:var(--muted);margin-top:.8rem">
+          ${token ? 'Click to auto-populate your menu.' : '⚠️ Login as admin first (see README → Step 3).'}
+        </p>
+      </div>`;
+    document.getElementById('menuTitle').textContent = '';
+    return;
+  }
+  renderCategories(); renderFoods(allFoods);
+}
+
+async function seedFoods() {
+  if (!token) { toast('Please login first'); showPage('auth'); return; }
+  const btn = document.getElementById('seedBtn');
+  if (btn) { btn.textContent = '⏳ Seeding…'; btn.disabled = true; }
+  try {
+    await api('/foods/seed/data', 'POST');
+    // Clear any demo items from cart after seeding real data
+    cart = cart.filter(i => isObjectId(i.foodId));
+    saveCart();
+    toast('✅ 12 food items added! Loading menu…');
+    setTimeout(loadFoods, 800);
+  } catch(err) {
+    toast('❌ ' + err.message);
+    if (btn) { btn.textContent = '🌱 Seed Menu — Add 12 Sample Items'; btn.disabled = false; }
+  }
+}
+
+const CATEGORIES = ['All','Biryani','Curry','Burgers','Pizza','South Indian','Noodles','Rolls','Starters','Thali','Drinks','Desserts'];
+
+function renderCategories() {
+  document.getElementById('categoryChips').innerHTML = CATEGORIES.map(c =>
+    `<button class="chip ${c===selectedCategory?'selected':''}" onclick="selectCategory('${c}')">${c}</button>`
+  ).join('');
+}
+
+function selectCategory(cat) {
+  selectedCategory = cat; renderCategories(); filterFoods();
+}
+
+function filterFoods() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  let foods = allFoods;
+  if (selectedCategory !== 'All') foods = foods.filter(f => f.category === selectedCategory);
+  if (q) foods = foods.filter(f => f.name.toLowerCase().includes(q) || f.description.toLowerCase().includes(q));
+  document.getElementById('menuTitle').textContent =
+    selectedCategory!=='All' ? selectedCategory : q ? `Results for "${q}"` : 'All Items';
+  renderFoods(foods);
+}
+
+function tagHtml(tags=[]) {
+  return (tags||[]).map(t => `<span class="food-tag ${t}">${
+    t==='spicy'?'🌶 Spicy':t==='popular'?'🔥 Popular':t==='new'?'✨ New':t}</span>`).join('');
+}
+
+function renderFoods(foods) {
+  if (!foods.length) {
+    document.getElementById('foodGrid').innerHTML = '<p style="color:var(--muted);grid-column:1/-1">No items found.</p>';
+    return;
+  }
+  document.getElementById('foodGrid').innerHTML = foods.map(f => `
+    <div class="food-card">
+      <div class="food-card-img">
+        <div class="veg-badge ${f.isVeg?'veg':'nonveg'}"></div>
+        ${f.isBestseller?'<div class="bestseller-tag">★ Bestseller</div>':''}
+        ${f.image||'🍽️'}
+      </div>
+      <div class="food-card-body">
+        <h3>${f.name}</h3>
+        <div class="food-tags">${tagHtml(f.tags)}</div>
+        <p>${f.description}</p>
+        <div class="food-info-row">
+          <span class="info-pill">🕐 ${f.prepTime} min</span>
+          ${f.calories?`<span class="info-pill">🔥 ${f.calories} kcal</span>`:''}
+          <span class="info-pill">⭐ ${f.rating}</span>
+        </div>
+        <div class="food-meta"><span class="price">${inr(f.price)}</span></div>
+        <button class="add-btn" onclick="addToCart('${f._id}','${(f.name||'').replace(/'/g,"\\'")}',${f.price},'${f.image||'🍽️'}')">
+          + Add to Cart
+        </button>
+      </div>
+    </div>`).join('');
+}
+
+// ── Cart ───────────────────────────────────────────────────
+function addToCart(id, name, price, image) {
+  const ex = cart.find(i => i.foodId === id);
+  if (ex) ex.quantity += 1;
+  else cart.push({foodId:id, name, price, image, quantity:1});
+  saveCart();
+  toast(`${name} added to cart 🛒`);
+}
+
+function saveCart() {
+  localStorage.setItem('fn_cart', JSON.stringify(cart));
+  document.getElementById('cartCount').textContent = cart.reduce((s,i) => s+i.quantity, 0);
+}
+
+function changeQty(id, delta) {
+  const item = cart.find(i => i.foodId === id);
+  if (!item) return;
+  item.quantity += delta;
+  if (item.quantity <= 0) cart = cart.filter(i => i.foodId !== id);
+  saveCart(); renderCart();
+  setTimeout(initMap, 100);
+}
+
+function renderCart() {
+  const itemsEl = document.getElementById('cartItems');
+  const totalEl = document.getElementById('cartTotalBox');
+  if (!cart.length) {
+    itemsEl.innerHTML = '<div class="cart-empty">🛒 Your cart is empty!<br><small>Add some delicious items from the menu.</small></div>';
+    totalEl.innerHTML = '';
+    return;
+  }
+
+  const hasDemo = cart.some(i => !isObjectId(i.foodId));
+  const demoNote = hasDemo ? `<div class="demo-warning">⚠️ <strong>Demo items detected.</strong> These items are for UI preview only and cannot be ordered until you seed real food data from the backend. <a href="#" style="color:#92400E;font-weight:600" onclick="showPage('home');return false">Browse real menu →</a></div>` : '';
+
+  itemsEl.innerHTML = demoNote + cart.map(i => `
+    <div class="cart-item">
+      <div class="cart-item-emoji">${i.image}</div>
+      <div class="cart-item-info">
+        <h4>${i.name} ${!isObjectId(i.foodId)?'<span style="font-size:.7rem;color:#B45309;background:#FEF3C7;padding:1px 6px;border-radius:4px;margin-left:4px">demo</span>':''}</h4>
+        <p>${inr(i.price)} each</p>
+      </div>
+      <div class="qty-controls">
+        <button class="qty-btn" onclick="changeQty('${i.foodId}',-1)">−</button>
+        <span>${i.quantity}</span>
+        <button class="qty-btn" onclick="changeQty('${i.foodId}',1)">+</button>
+      </div>
+      <div class="cart-item-total">${inr(i.price*i.quantity)}</div>
+    </div>`).join('');
+
+  const subtotal = cart.reduce((s,i) => s+i.price*i.quantity, 0);
+  const delivery = subtotal >= 499 ? 0 : 39;
+  const gst = Math.round(subtotal * 0.05);
+  const total = subtotal + delivery + gst;
+
+  totalEl.innerHTML = `
+    <div class="cart-total-box">
+      <div class="total-row"><span>Item Total</span><span>${inr(subtotal)}</span></div>
+      <div class="total-row"><span>Delivery Fee</span><span>${delivery===0?'<span style="color:var(--success)">FREE</span>':inr(delivery)}</span></div>
+      <div class="total-row"><span>GST (5%)</span><span>${inr(gst)}</span></div>
+      ${delivery===0?'<div class="savings-row">🎉 You saved ₹39 on delivery!</div>':`<div style="font-size:.78rem;color:var(--muted);margin-bottom:.4rem">Add ${inr(499-subtotal)} more for free delivery</div>`}
+      <div class="total-row grand"><span>To Pay</span><span>${inr(total)}</span></div>
+
+      <div class="checkout-form">
+        <p style="font-size:.85rem;font-weight:600;margin-bottom:.5rem;color:var(--text)">📍 Delivery Location</p>
+        <div class="map-addr-box">
+          <div class="map-search-row">
+            <input id="mapSearchInput" placeholder="Search your area, street or landmark…" onkeydown="if(event.key==='Enter')searchMapAddress()" />
+            <button onclick="searchMapAddress()">Search</button>
+          </div>
+          <div class="map-pin-hint">🗺️ Click on the map to drop your pin anywhere</div>
+          <div id="deliveryMap"></div>
+          <div class="map-selected-addr" id="mapAddrDisplay">
+            <span id="mapAddrText" style="color:var(--muted)">No location selected yet</span>
+            <button onclick="useMyLocation()" style="background:none;border:1px solid var(--saffron);color:var(--saffron);padding:3px 8px;border-radius:6px;cursor:pointer;font-size:.75rem;white-space:nowrap;">📡 Use GPS</button>
+          </div>
+        </div>
+        <select id="paymentMethod">
+          <option value="COD">💵 Cash on Delivery</option>
+          <option value="Online">💳 Online Payment</option>
+        </select>
+        <button class="btn-primary" style="width:100%" onclick="placeOrder()">Place Order — ${inr(total)} →</button>
+      </div>
+    </div>`;
+
+  // Init map after DOM is ready
+  setTimeout(initMap, 150);
+}
+
+// ── Leaflet Map ────────────────────────────────────────────
+function initMap() {
+  if (leafletMap) {
+    leafletMap.remove();
+    leafletMap = null;
+    deliveryMarker = null;
+  }
+  const mapEl = document.getElementById('deliveryMap');
+  if (!mapEl) return;
+
+  // Default: Chennai (since user is in Chennai)
+  const defaultLat = 13.0827, defaultLng = 80.2707;
+  leafletMap = L.map('deliveryMap', { zoomControl: true }).setView([defaultLat, defaultLng], 13);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://openstreetmap.org">OpenStreetMap</a>',
+    maxZoom: 19,
+  }).addTo(leafletMap);
+
+  // Custom orange marker icon
+  const orangeIcon = L.divIcon({
+    html: `<div style="background:var(--saffron,#FF6B00);width:28px;height:28px;border-radius:50% 50% 50% 0;
+                        transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3);">
+             <div style="transform:rotate(45deg);text-align:center;line-height:22px;font-size:12px;">📍</div>
+           </div>`,
+    className: '', iconSize: [28, 28], iconAnchor: [14, 28],
+  });
+
+  // Click on map to place pin
+  leafletMap.on('click', function(e) {
+    placePin(e.latlng.lat, e.latlng.lng);
+  });
+
+  // Restore previous pin if any
+  if (selectedLatLng) {
+    placePin(selectedLatLng.lat, selectedLatLng.lng, selectedAddress);
+  }
+
+  // Fix tile rendering in hidden tabs
+  setTimeout(() => leafletMap && leafletMap.invalidateSize(), 200);
+}
+
+function placePin(lat, lng, addressOverride) {
+  if (!leafletMap) return;
+  selectedLatLng = {lat, lng};
+
+  const orangeIcon = L.divIcon({
+    html: `<div style="background:#FF6B00;width:32px;height:32px;border-radius:50% 50% 50% 0;
+                        transform:rotate(-45deg);border:3px solid white;box-shadow:0 3px 10px rgba(0,0,0,.4);">
+             <div style="transform:rotate(45deg);text-align:center;line-height:26px;font-size:14px;">🏠</div>
+           </div>`,
+    className:'', iconSize:[32,32], iconAnchor:[16,32],
+  });
+
+  if (deliveryMarker) deliveryMarker.remove();
+  deliveryMarker = L.marker([lat, lng], {icon: orangeIcon, draggable: true}).addTo(leafletMap);
+
+  deliveryMarker.on('dragend', function(e) {
+    const pos = e.target.getLatLng();
+    reverseGeocode(pos.lat, pos.lng);
+  });
+
+  if (addressOverride) {
+    setAddressDisplay(addressOverride, lat, lng);
+  } else {
+    reverseGeocode(lat, lng);
+  }
+  leafletMap.setView([lat, lng], 16);
+}
+
+async function reverseGeocode(lat, lng) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1`);
+    const data = await res.json();
+    const addr = data.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    setAddressDisplay(addr, lat, lng);
+  } catch {
+    setAddressDisplay(`${lat.toFixed(5)}, ${lng.toFixed(5)}`, lat, lng);
+  }
+}
+
+function setAddressDisplay(addr, lat, lng) {
+  selectedAddress = addr;
+  selectedLatLng = {lat, lng};
+  const el = document.getElementById('mapAddrText');
+  if (el) el.innerHTML = `<strong style="color:var(--text)">📍 ${addr.split(',').slice(0,3).join(', ')}</strong>`;
+}
+
+async function searchMapAddress() {
+  const q = document.getElementById('mapSearchInput')?.value.trim();
+  if (!q) return;
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q+', India')}&limit=1`);
+    const data = await res.json();
+    if (!data.length) { toast('Location not found, try a different search'); return; }
+    placePin(parseFloat(data[0].lat), parseFloat(data[0].lon), data[0].display_name);
+  } catch {
+    toast('Search failed — try clicking on the map directly');
+  }
+}
+
+function useMyLocation() {
+  if (!navigator.geolocation) { toast('GPS not supported in your browser'); return; }
+  toast('📡 Getting your location…');
+  navigator.geolocation.getCurrentPosition(
+    (pos) => placePin(pos.coords.latitude, pos.coords.longitude),
+    () => toast('❌ Location access denied — please allow GPS or click on map')
+  );
+}
+
+// ── Place Order ────────────────────────────────────────────
+async function placeOrder() {
+  if (!token) { toast('Please login to place an order ⚠️'); showPage('auth'); return; }
+  if (!selectedAddress) { toast('📍 Please select a delivery location on the map'); return; }
+
+  const paymentMethod = document.getElementById('paymentMethod').value;
+
+  // Fix BSONError: filter out demo items (fake IDs like "d1", "d2"…)
+  const realItems  = cart.filter(i => isObjectId(i.foodId));
+  const demoCount  = cart.length - realItems.length;
+
+  if (realItems.length === 0) {
+    toast('⚠️ These are demo items — seed real food data first (see README → Step 3)');
+    return;
+  }
+  if (demoCount > 0) {
+    toast(`ℹ️ ${demoCount} demo item(s) skipped — placing order for ${realItems.length} real item(s)`);
+  }
+
+  const items = realItems.map(i => ({food:i.foodId, name:i.name, price:i.price, quantity:i.quantity}));
+  const deliveryAddress = selectedAddress;
+
+  try {
+    await api('/orders', 'POST', {items, deliveryAddress, paymentMethod});
+    cart = []; saveCart(); renderCart();
+    selectedAddress = ''; selectedLatLng = null;
+    toast('🎉 Order placed! Track it in My Orders.');
+    setTimeout(() => showPage('orders'), 1500);
+  } catch(err) {
+    toast('❌ ' + err.message);
+  }
+}
+
+// ── Orders ─────────────────────────────────────────────────
+async function loadOrders() {
+  if (!token) {
+    document.getElementById('ordersList').innerHTML =
+      '<div class="cart-empty">Please <a style="color:var(--saffron);cursor:pointer" onclick="showPage(\'auth\')">login</a> to view your orders.</div>';
+    return;
+  }
+  try {
+    const orders = await api('/orders/myorders');
+    if (!orders.length) {
+      document.getElementById('ordersList').innerHTML = '<div class="cart-empty">No orders yet. Time to feast! 🍛</div>';
+      return;
+    }
+    document.getElementById('ordersList').innerHTML = orders.map(o => `
+      <div class="order-card">
+        <div class="order-header">
+          <div>
+            <strong>Order #${o._id.slice(-6).toUpperCase()}</strong>
+            <div class="order-id">${new Date(o.createdAt).toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+          </div>
+          <span class="status-badge status-${o.status.replace(/ /g,'-')}">${o.status}</span>
+        </div>
+        <div class="order-items-list">
+          ${o.items.map(i=>`${i.name} × ${i.quantity} — ${inr(i.price*i.quantity)}`).join('<br>')}
+        </div>
+        <div class="order-footer">
+          <span style="font-size:.83rem;color:var(--muted)">📍 ${(o.deliveryAddress||'').split(',').slice(0,2).join(',')}</span>
+          <strong>${inr(o.totalAmount)}</strong>
+        </div>
+        ${['Placed','Confirmed'].includes(o.status)
+          ? `<button onclick="cancelOrder('${o._id}')" style="margin-top:.7rem;background:none;border:1px solid var(--danger);color:var(--danger);padding:.3rem .9rem;border-radius:8px;cursor:pointer;font-size:.82rem;">Cancel Order</button>`
+          : ''}
+      </div>`).join('');
+  } catch(err) {
+    document.getElementById('ordersList').innerHTML = `<p style="color:red">${err.message}</p>`;
+  }
+}
+
+async function cancelOrder(id) {
+  try {
+    await api(`/orders/${id}/cancel`,'PUT');
+    toast('Order cancelled'); loadOrders();
+  } catch(err) { toast('❌ ' + err.message); }
+}
+
+// ── Init ───────────────────────────────────────────────────
+// On page load: if backend is reachable and foods exist, auto-clear demo items from cart
+async function initApp() {
+  updateAuthNav();
+  // Try to load real foods from backend
+  try {
+    const foods = await fetch(API + '/foods').then(r => r.json());
+    if (Array.isArray(foods) && foods.length > 0) {
+      // Real foods exist — remove any demo items (d1, d2…) stuck in cart
+      const before = cart.length;
+      cart = cart.filter(i => isObjectId(i.foodId));
+      if (cart.length !== before) {
+        saveCart();
+        if (before - cart.length > 0) toast('🧹 Demo items cleared from cart — real menu loaded!');
+      }
+    }
+  } catch { /* backend offline, keep demo cart */ }
+  loadFoods();
+  document.getElementById('cartCount').textContent = cart.reduce((s,i) => s+i.quantity, 0);
+}
+initApp();
+</script>
+</body>
+</html>
